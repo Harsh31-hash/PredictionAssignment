@@ -1,0 +1,274 @@
+title: "Weight lifting analysis using R"
+author: "Harsh Gambhir"
+
+```{r,warning=FALSE,message=FALSE,include=FALSE,echo=FALSE}
+
+library(dplyr)
+library(ggplot2)
+library(DT)
+library(caret)
+library(knitr)
+library(corrplot)
+library(plotly)
+library(correlationfunnel)
+library(GGally)
+library(e1071)
+
+```
+```{r}
+abc <- read.csv("pml-training.csv", stringsAsFactors = F,na.strings = c("","NA","#DIV/0!"))
+def <- read.csv("pml-testing.csv", stringsAsFactors = F,na.strings = c("","NA","#DIV/0!"))
+dim(abc); dim(def)
+```
+```{r}
+
+set.seed(101)
+jkl <- createDataPartition(abc$classe, p = 0.8, list = F)
+ghi <- abc[-jkl,]
+abc <- abc[jkl,]
+dim(abc); dim(ghi)
+```
+```{r}
+table(abc$classe)/nrow(abc)
+```
+```{r out.width = "50%", fig.align = "center", echo=FALSE}
+include_graphics("dig.png")
+```
+```{r}
+mno <- sapply(select(abc,names(abc)[grepl("_belt",names(abc))]),
+                    function(x) sum(is.na(x)))
+mno
+```
+```{r}
+pqr <- sapply(select(abc,names(abc)[grepl("_arm",names(abc))]),
+                   function(x) sum(is.na(x)))
+pqr
+```  
+```{r}
+forepqr <- sapply(select(abc,
+                              names(abc)[grepl("_forearm",names(abc))]),
+                       function(x) sum(is.na(x)))
+forepqr
+```  
+```{r}
+stu <- sapply(select(abc,
+                               names(abc)[grepl("_dumbbell",names(abc))]),
+                        function(x) sum(is.na(x)))
+stu
+``` 
+```{r}
+column_2drop <- c(names(mno[mno != 0]), 
+                  names(pqr[pqr != 0]),
+                  names(forepqr[forepqr != 0]),
+                  names(stu[stu != 0]))
+length(column_2drop)
+```
+```{r}
+
+vwx <- tbl_df(abc %>% 
+                      select(-column_2drop,
+                             -c(X,user_name, raw_timestamp_part_1, 
+                                raw_timestamp_part_2, cvtd_timestamp, 
+                                new_window,num_window)))
+vwx$classe <- as.factor(vwx$classe)
+vwx[,1:52] <- lapply(vwx[,1:52],as.numeric)
+dim(vwx)
+```
+```{r,fig.height=10,fig.width=10}
+corr_col <- cor(select(vwx, -classe))
+diag(corr_col) <- 0
+corr_col <- which(abs(corr_col)>0.8,arr.ind = T)
+corr_col <- unique(row.names(corr_col))
+corrplot(cor(select(vwx,corr_col)),
+         type="upper", order="hclust",method = "number")
+```
+```{r}
+
+corr_funl_df <- vwx %>% binarize(n_bins = 4, thresh_infreq = 0.01)
+```
+```{r,fig.align="center",fig.width=8,fig.height=10}
+corr_a <- corr_funl_df %>% correlate(target = classe__A) 
+corr_a %>% plot_correlation_funnel(interactive = T,limits = c(-0.5,0.5))
+```
+```{r, echo=FALSE, eval=FALSE}
+
+temp_a <- head(corr_a %>% mutate(corr = abs(correlation)) %>% 
+  arrange(desc(corr)) %>% select(feature) %>% unique(),20)
+temp_a$feature[which(temp_a$feature %in% corr_col)]
+```
+```{r,fig.align="center",fig.width=8,fig.height=10}
+corr_b <- corr_funl_df %>% correlate(target = classe__B)
+corr_b %>% plot_correlation_funnel(interactive = T,limits = c(-0.5,0.5))
+```
+```{r, echo=FALSE, eval=FALSE}
+
+temp_b <- head(corr_b %>% mutate(corr = abs(correlation)) %>% 
+  arrange(desc(corr)) %>% select(feature) %>% unique(),20)
+temp_b$feature[which(temp_b$feature %in% corr_col)]
+```
+```{r,fig.align="center",fig.width=8,fig.height=10}
+corr_c <- corr_funl_df %>% correlate(target = classe__C)
+corr_c %>% plot_correlation_funnel(interactive = T,limits = c(-0.5,0.5))
+```
+```{r, echo=FALSE, eval=FALSE}
+
+temp_c <- head(corr_c %>% mutate(corr = abs(correlation)) %>% 
+  arrange(desc(corr)) %>% select(feature) %>% unique(),20)
+temp_c$feature[which(temp_c$feature %in% corr_col)]
+```
+```{r,fig.align="center",fig.width=8,fig.height=10}
+corr_d <- corr_funl_df %>% correlate(target = classe__D)
+corr_d %>% plot_correlation_funnel(interactive = T,limits = c(-0.5,0.5))
+```
+```{r, echo=FALSE, eval=FALSE}
+
+temp_d <- head(corr_d %>% mutate(corr = abs(correlation)) %>% 
+  arrange(desc(corr)) %>% select(feature) %>% unique(),20)
+temp_d$feature[which(temp_d$feature %in% corr_col)]
+```
+```{r,fig.align="center",fig.width=8,fig.height=10}
+corr_e <- corr_funl_df %>% correlate(target = classe__E)
+corr_e %>% plot_correlation_funnel(interactive = T,limits = c(-0.5,0.5))
+```
+```{r, echo=FALSE, eval=FALSE}
+
+temp_e <- head(corr_e %>% mutate(corr = abs(correlation)) %>% 
+  arrange(desc(corr)) %>% select(feature) %>% unique(),20)
+temp_e$feature[which(temp_e$feature %in% corr_col)]
+```
+```{r}
+
+col_a <- c("magnet_arm_x", "pitch_forearm" , "magnet_dumbbell_y", 
+           "roll_forearm", "gyros_dumbbell_y") 
+col_b <- c("magnet_dumbbell_y", "magnet_dumbbell_x" , "roll_dumbbell" , 
+           "magnet_belt_y" , "accel_dumbbell_x" )
+col_c <- c("magnet_dumbbell_y", "roll_dumbbell" , "accel_dumbbell_y" , 
+           "magnet_dumbbell_x", "magnet_dumbbell_z")
+col_d <- c("pitch_forearm" , "magnet_arm_y" , "magnet_forearm_x",
+           "accel_dumbbell_y", "accel_forearm_x")
+col_e <- c("magnet_belt_y" , "magnet_belt_z" , "roll_belt", 
+           "gyros_belt_z" , "magnet_dumbbell_y")
+final_cols <- character()
+for(c in c(col_a,col_b,col_c,col_d,col_e)){
+  final_cols <- union(final_cols, c)
+}
+vwx2 <- vwx %>% select(final_cols, classe)
+data.frame("arm" = sum(grepl("_arm",final_cols)), 
+           "forearm" = sum(grepl("_forearm",final_cols)),
+           "belt" = sum(grepl("_belt",final_cols)),
+           "dumbbell" = sum(grepl("_dumbbell",final_cols)))
+```
+```{r, fig.align="center",fig.height=15,fig.width=15}
+my_dens <- function(data, mapping, ...) {
+  ggplot(data = data, mapping=mapping) +
+    geom_density(..., alpha = 0.3)+scale_fill_brewer(palette="Set2") 
+}
+my_point <- function(data, mapping, ...) {
+  ggplot(data = data, mapping=mapping) +
+    geom_point(..., alpha = 0.1)+ scale_fill_brewer(palette="Set2") 
+}
+ggpairs(vwx2, columns = 1:5,aes(color = classe),
+        lower = list(continuous = my_point),diag = list(continuous = my_dens))
+```
+```{r,fig.align="center",fig.height=15,fig.width=15}
+ggpairs(vwx2, columns = 6:10,aes(color = classe),
+        lower = list(continuous = my_point),diag = list(continuous = my_dens))
+```
+```{r,fig.align="center",fig.height=15,fig.width=15}
+ggpairs(vwx2, columns = 11:17,aes(color = classe),
+        lower = list(continuous = my_point),diag = list(continuous = my_dens))
+```
+```{r}
+abcF <- abc %>% select(final_cols,classe)
+ghiF <- ghi %>% select(final_cols,classe)
+abcF[,1:17] <- sapply(abcF[,1:17],as.numeric)
+ghiF[,1:17] <- sapply(ghiF[,1:17],as.numeric)
+levels <- c("A", "B", "C", "D", "E")
+preprop_obj <- preProcess(abcF[,-18],method = c("center","scale","BoxCox"))
+xTrain <- predict(preprop_obj,select(abcF,-classe))
+yTrain <- factor(abcF$classe,levels=levels)
+xVal <- predict(preprop_obj,select(ghiF,-classe))
+yVal <- factor(ghiF$classe,levels=levels)
+trControl <- trainControl(method="cv", number=5)
+
+modelCT <- train(x = xTrain,y = yTrain, 
+                 method = "rpart", trControl = trControl)
+
+modelRF <- train(x = xTrain,y = yTrain, 
+                 method = "rf", trControl = trControl,verbose=FALSE, metric = "Accuracy")
+
+modelGBM <- train(x = xTrain,y = yTrain, 
+                  method = "gbm",trControl=trControl, verbose=FALSE)
+
+modelSVM <- svm(x = xTrain,y = yTrain,
+                kernel = "polynomial", cost = 10)
+```
+```{r}
+confusionMatrix(predict(modelCT,xVal),yVal)
+```
+```{r}
+confusionMatrix(predict(modelRF,xVal),yVal)
+```
+```{r}
+plot(modelRF$finalModel,main="Error VS no of tree")
+```
+```{r}
+confusionMatrix(predict(modelGBM,xVal),yVal)
+```
+```{r}
+confusionMatrix(predict(modelSVM,xVal),yVal)
+```
+```{r}
+def2 <- def %>% select(final_cols,problem_id)
+xTest <- def2 %>% select(final_cols)
+  
+result <- data.frame("problem_id" = def$problem_id,
+                     "PREDICTION_RF" = predict(modelRF,xTest),
+                     "PREDICTION_GBM" = predict(modelGBM,xTest),
+                     "PREDICTION_SVM" = predict(modelSVM,xTest))
+result
+```
+```{r}
+abcF2 <- tbl_df(abc %>% 
+                      select(-column_2drop,
+                             -c(X,user_name, raw_timestamp_part_1, 
+                                raw_timestamp_part_2, cvtd_timestamp, 
+                                new_window,num_window)))
+xTrain2 <- abcF2 %>% select(-classe)
+xTrain2 <- sapply(xTrain2,as.numeric)
+yTrain2 <- factor(abcF2$classe,levels=levels)  
+ghiF2 <- tbl_df(ghi %>% 
+                      select(-column_2drop,
+                             -c(X,user_name, raw_timestamp_part_1, 
+                                raw_timestamp_part_2, cvtd_timestamp, 
+                                new_window,num_window)))
+xVal2 <- ghiF2 %>% select(-classe)
+xVal2 <- sapply(xVal2,as.numeric)
+yVal2 <- factor(ghiF2$classe,levels=levels) 
+defF2 <- tbl_df(def %>% 
+                      select(-column_2drop,
+                             -c(X,user_name, raw_timestamp_part_1, 
+                                raw_timestamp_part_2, cvtd_timestamp, 
+                                new_window,num_window)))
+xTest2 <- defF2 %>% select(-problem_id)
+xTest2 <- sapply(xTest2,as.numeric)
+pb_id <- ghiF2$classe
+library(doParallel)
+ncores <- makeCluster(detectCores() - 1)
+registerDoParallel(cores=ncores)
+getDoParWorkers() 
+modelRF2 <- train(x = xTrain2,y = yTrain2, method = "rf", 
+                 metric = "Accuracy", 
+                 trControl=trainControl(method = "cv", number = 4, 
+                                        p= 0.60, allowParallel = TRUE ))
+```
+```{r}
+
+result2 <- data.frame("problem_id" = def$problem_id,
+                     "PREDICTION_RF" = predict(modelRF,xTest),
+                     "PREDICTION_GBM" = predict(modelGBM,xTest),
+                     "PREDICTION_SVM" = predict(modelSVM,xTest),
+                     "PREDICTION_RF2_ALL_COL"=predict(modelRF2,xTest2))
+result2
+```
+
